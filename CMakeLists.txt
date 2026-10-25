@@ -8,6 +8,7 @@ project(april-asr
         VERSION 2023.05.12
         DESCRIPTION "aprilasr is a minimal library that provides an API for offline streaming speech-to-text applications"
         HOMEPAGE_URL "https://github.com/abb128/april-asr")
+      set(CMAKE_EXPORT_COMPILE_COMMANDS ON) 
 
 string(REPLACE "-" "" PROJECT_NAME_SO ${PROJECT_NAME})
 
@@ -133,6 +134,8 @@ if(NOT WIN32)
   list(APPEND april_link_libraries "m")
 endif()
 
+find_package(Lua REQUIRED)
+
 include_directories(${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src ${ORT_INCLUDE_DIR})
 
 add_library(aprilasr_static STATIC ${april_sources})
@@ -145,11 +148,8 @@ set_target_properties(aprilasr PROPERTIES VERSION ${CMAKE_PROJECT_VERSION}
 SOVERSION ${PROJECT_VERSION_MAJOR} )
 set_target_properties(aprilasr PROPERTIES PUBLIC_HEADER "${april_headers}")
 
-add_executable(main example.cpp)
-target_link_libraries(main PRIVATE aprilasr_static ${april_link_libraries})
-
-add_executable(srt example_srt.cpp)
-target_link_libraries(srt PRIVATE aprilasr_static ${april_link_libraries})
+add_executable(obs_captions obs_captions.cpp)
+target_link_libraries(obs_captions PRIVATE aprilasr_static ${april_link_libraries})
 
 install(TARGETS aprilasr
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

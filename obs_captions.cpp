@@ -9,6 +9,8 @@
 #include <errno.h>
 #include "april_api.h"
 
+
+
 #ifndef _MSC_VER
 #include <unistd.h>
 #else
@@ -18,32 +20,15 @@
 typedef SSIZE_T ssize_t;
 #endif
 
+// attempting to add cpp libs wtf why is thing
+// a cpp file and using old ass C pointer shit?!
+#include <string>
+#include <iostream>
+#include <fstream>
+std::string text_file_path = "";
+
 #define BUFFER_SIZE 1024
 int ends_with(const char *str, const char *suffix);
-
-struct wav_header {
-    // RIFF Header
-    char riff_header[4]; // Contains "RIFF"
-    uint32_t wav_size; // Size of the wav portion of the file, which follows the first 8 bytes. File size - 8
-    char wave_header[4]; // Contains "WAVE"
-    
-    // Format Header
-    char fmt_header[4]; // Contains "fmt " (includes trailing space)
-    int32_t fmt_chunk_size; // Should be 16 for PCM
-    int16_t audio_format; // Should be 1 for PCM. 3 for IEEE Float
-    int16_t num_channels;
-    int32_t sample_rate;
-    int32_t byte_rate; // Number of bytes per second. sample_rate * num_channels * Bytes Per Sample
-    int16_t sample_alignment; // num_channels * Bytes Per Sample
-    int16_t bit_depth; // Number of bits per sample
-    
-    // Data
-    char data_header[4]; // Contains "data"
-    uint32_t data_bytes; // Number of bytes in data. Number of samples * num_channels * sample byte size
-};
-
-static_assert(sizeof(wav_header) == 44L, "wav header must be 44 bytes");
-
 // In this example, the internal state is just a global struct just for testing
 // In your program you can pass any pointer into userdata to access it in the
 // handler
@@ -54,6 +39,7 @@ struct {
 // This callback function will get called every time a new result is decoded.
 // It's passed into the AprilConfig along with the userdata pointer.
 void handler(void *userdata, AprilResultType result, size_t count, const AprilToken *tokens) {
+    
     assert(userdata == &some_internal_state);
 
     switch(result){
@@ -69,24 +55,39 @@ void handler(void *userdata, AprilResultType result, size_t count, const AprilTo
             assert(false);
             return;
     }
+    // variable holding current caption text
+    std::string captions = "";
+
 
     for(int t=0; t<count; t++){
         const char *text = tokens[t].token;
         printf("%s", text);
+        captions += text;
+        }
+std::ofstream outFile(text_file_path);
+
+    if (outFile.is_open()) {
+        outFile << captions;
+        outFile.close(); 
+    } else {
+        printf("Error opening file!\n");
     }
-    printf("\n");
-}
+        printf(captions.c_str());
+        captions = "";
+        printf("\n");
+    }
+
 
 int main(int argc, char *argv[]){
+  printf("args: %d", argc);
     if(argc != 3){
-        printf("Usage: %s [file] [modelpath]\n", argv[0]);
-        printf(" - [file] must be a 16000Hz raw PCM16 file, or may be - for stdin\n");
-        printf(" - [modelpath] must be a path to the models\n");
+        printf("Usage: %s [input] [path to text file]\n", argv[0]);
         return 1;
     }
 
     const char *input_file = argv[1];
-    const char *input_model = argv[2];
+    const char *input_model = "models/april-english-dev-01110_en.april";
+    text_file_path = argv[2];
     
     // In the start of our program we should call aam_api_init.
     // This should only be called once.
@@ -148,74 +149,13 @@ int main(int argc, char *argv[]){
             
             aas_feed_pcm16(session, (short *)data, r/2);
         }
-    } else if (argv[1][0] == '?' && argv[1][1] == 0) {
+    } else {
         // Run some blank data, mainly for memory leak testing
         char data[6400];
         memset(data, 0, 6400);
         aas_feed_pcm16(session, (short *)data, 3200);
         aas_flush(session);
-    } else {
-        // wave file mode, the file must be in PCM16 format sampled in the
-        // model's sample rate.
-        FILE *fd = fopen(argv[1], "rb");
-        
-        if(fd == 0){
-            printf("Failed to open file %s\n", argv[1]);
-            return 2;
-        }
-
-        fseek(fd, 0L, SEEK_END);
-        size_t sz = ftell(fd);
-        size_t offset = 0L;
-
-        fseek(fd, 0L, SEEK_SET);
-
-        // Verify the RIFF header if supplied
-        if(ends_with(argv[1], ".wav")) {
-            wav_header header;
-            fread(&header, 1L, 44L, fd);
-
-            bool is_valid_wav = (header.fmt_chunk_size == 16)
-                             && (header.audio_format == 1)
-                             && (header.sample_rate == model_sample_rate)
-                             && (header.num_channels == 1);
-            
-            if(!is_valid_wav){
-                printf("Wave file must be single-channel 16-bit PCM sampled in %llu Hz!\n", model_sample_rate);
-                return 2;
-            }
-
-            offset = 44L;
-        }
-
-        fseek(fd, 0L, SEEK_SET);
-
-        // read the file
-        uint8_t *file = (uint8_t *)calloc(1, sz);
-        if (fread(file, 1, sz, fd) != sz) {
-            printf("reading file failed\n");
-            return 4;
-        }
-
-        int16_t *file_data = (int16_t *)(file + offset);
-        size_t num_shorts = (sz - offset) / 2;
-
-        // For synchronous mode, it's possible to feed the entire thing at once
-        // For asynchronous, you may want to break it up into smaller chunks
-        // over time because the size of the internal buffer is limited
-        aas_feed_pcm16(session, file_data, num_shorts);
-
-        // Flushing makes sure any remaining frames get processed and a final
-        // result is given
-        aas_flush(session);
-
-        printf("\ndone\n");
-
-        free(file);
-        fclose(fd);
-    }
-
-    aas_free(session);
+    }    aas_free(session);
     aam_free(model);
 
     return 0;
