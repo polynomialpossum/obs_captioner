@@ -1,9 +1,6 @@
 # What do?
 This uses a local llm model to write captions to a file that can be read by OBS. At this very moment, it only works on linux, but my first priority will be getting a Windows version availble, feel free to send a PR!
 
-## Models
->A few models are available, listed 
->The English models are based on [csukuangfj's trained icefall model](https://huggingface.co/csukuangfj/icefall-asr-librispeech-lstm-transducer-stateless2-2022-09-03/tree/main/exp) as the base, and trained with some extra data.
 ## Needed software/tools
 - april-asr
   - [aprilasr](https://github.com/abb128/april-asr) is a minimal library that provides an API for offline streaming speech-to-text applications
@@ -42,7 +39,7 @@ This is a console app that accepts microphone input and the path of a text file 
 
 This is what the original april-asr library had for instructions and is probably a good starting point.
 
-## Building on Windows (msvc)
+#### Building on Windows (msvc)
 Create a folder called `lib` in the april-asr folder.
 
 Download [onnxruntime-win-x64-1.13.1.zip](https://github.com/microsoft/onnxruntime/releases/download/v1.13.1/onnxruntime-win-x64-1.13.1.zip) and extract the insides of the onnxruntime-win-x64-1.13.1 folder to the `lib` folder
@@ -55,6 +52,10 @@ When running main.exe you may receive an error message like this:
 > The application was unable to start correctly (0xc000007b)
 
 To fix this, you need to make onnxruntime.dll available. One way to do this is to copy onnxruntime.dll from lib/lib/onnxruntime.dll to build/Debug and build/Release. You may need to distribute the dll together with your application.
+
+### OBS
+- Add a new text source that is able to read from a file. Most of the default text ones, do. On linux I'm using [Pthread](https://obsproject.com/forum/resources/pthread-text.1287/). 
+- Set the file to wherever you saved it from the exectuable. Voila!
 
 ## Acknowledgements
 
